@@ -7,20 +7,33 @@ const MACHINES = [["E00328680","5CD5113YZH","N3041SACDW01471","Printer Console A
   const STORE_KEY = "exam_states_v2", SEED_KEY = "exam_seeded_v2";
   let states = {}, filter = "all", query = "", groupBy = "room", collapsed = {};
 
+  // Storage adapter: prefer the desktop app's window.storage, fall back to
+  // the browser's localStorage so progress persists across refreshes anywhere.
+  const store = {
+    async get(k){
+      if (window.storage && window.storage.get) { try { return await window.storage.get(k); } catch(e){} }
+      try { const v = localStorage.getItem(k); return v==null ? null : {value:v}; } catch(e){ return null; }
+    },
+    async set(k,v){
+      if (window.storage && window.storage.set) { try { return await window.storage.set(k,v); } catch(e){} }
+      try { localStorage.setItem(k,v); } catch(e){}
+    }
+  };
+
   function ecsNum(e){ const m = String(e).match(/ECS\s*(\d+)/); return m? parseInt(m[1]):999; }
   function isMain(e){ return /\(main\)/i.test(e); }
 
   async function load(){
-    try { const r = await window.storage.get(STORE_KEY); if (r&&r.value) states = JSON.parse(r.value); } catch(e){}
+    try { const r = await store.get(STORE_KEY); if (r&&r.value) states = JSON.parse(r.value); } catch(e){}
     let seeded=false;
-    try { const s = await window.storage.get(SEED_KEY); if(s&&s.value) seeded=true; } catch(e){}
+    try { const s = await store.get(SEED_KEY); if(s&&s.value) seeded=true; } catch(e){}
     if (!seeded){
       MACHINES.forEach(m=>{ states[m[0]] = m[6]? "done":"rem"; });
       await save();
-      try { await window.storage.set(SEED_KEY,"1"); } catch(e){}
+      try { await store.set(SEED_KEY,"1"); } catch(e){}
     }
   }
-  async function save(){ try { await window.storage.set(STORE_KEY, JSON.stringify(states)); } catch(e){} }
+  async function save(){ try { await store.set(STORE_KEY, JSON.stringify(states)); } catch(e){} }
   function next(s){ return s==="rem"?"prog": s==="prog"?"done":"rem"; }
 
   function groupsFor(){
